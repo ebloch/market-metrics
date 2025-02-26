@@ -20,7 +20,7 @@ This tool requires Python 3.6 or higher and the following Python packages:
 
 1. Clone this repository:
    ```
-   git clone https://github.com/yourusername/market-metrics.git
+   git clone https://github.com/ebloch/market-metrics.git
    cd market-metrics
    ```
 
