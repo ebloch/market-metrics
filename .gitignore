@@ -1,0 +1,65 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.env/
+.venv/
+env.bak/
+venv.bak/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+
+# Project specific
+# Log files
+*.log
+market_metrics.log
+
+# CSV files
+*.csv
+
+# Excel files
+*.xls
+*.xlsx
+shiller_temp.xls
+damodaran_temp.xlsx
+
+# Environment variables
+.env
+
+# Temporary files
+temp/
+tmp/
+
+# Generated plots
+*.png
+*.jpg
+*.jpeg
+*.pdf 
