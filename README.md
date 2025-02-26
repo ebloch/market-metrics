@@ -50,6 +50,19 @@ This tool requires a FRED (Federal Reserve Economic Data) API key to access econ
 
 You need to set the FRED API key as an environment variable before running the application.
 
+#### On macOS/Linux:
+
+For temporary use in current terminal session:
+```
+export FRED_API_KEY=your_api_key_here
+```
+
+For permanent use, add to your shell profile file (~/.bashrc, ~/.zshrc, etc.):
+```
+echo 'export FRED_API_KEY=your_api_key_here' >> ~/.bashrc
+source ~/.bashrc
+```
+
 #### On Windows:
 
 Command Prompt (temporary, for current session only):
@@ -70,19 +83,6 @@ To set permanently via System Properties:
 5. Variable name: `FRED_API_KEY`
 6. Variable value: your API key
 7. Click OK on all dialogs
-
-#### On macOS/Linux:
-
-For temporary use in current terminal session:
-```
-export FRED_API_KEY=your_api_key_here
-```
-
-For permanent use, add to your shell profile file (~/.bashrc, ~/.zshrc, etc.):
-```
-echo 'export FRED_API_KEY=your_api_key_here' >> ~/.bashrc
-source ~/.bashrc
-```
 
 ## Usage
 
