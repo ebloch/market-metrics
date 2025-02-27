@@ -2,6 +2,9 @@
 
 A command-line interface tool for retrieving and analyzing market metrics data.
 
+<img width="1048" alt="image" src="https://github.com/user-attachments/assets/e7eb3f86-b744-4ac8-8f7a-4a763c7df4f4" />
+
+
 ## Dependencies
 
 This tool requires Python 3.6 or higher and the following Python packages:
@@ -20,7 +23,7 @@ This tool requires Python 3.6 or higher and the following Python packages:
 
 1. Clone this repository:
    ```
-   git clone https://github.com/yourusername/market-metrics.git
+   git clone https://github.com/ebloch/market-metrics.git
    cd market-metrics
    ```
 
@@ -50,6 +53,19 @@ This tool requires a FRED (Federal Reserve Economic Data) API key to access econ
 
 You need to set the FRED API key as an environment variable before running the application.
 
+#### On macOS/Linux:
+
+For temporary use in current terminal session:
+```
+export FRED_API_KEY=your_api_key_here
+```
+
+For permanent use, add to your shell profile file (~/.bashrc, ~/.zshrc, etc.):
+```
+echo 'export FRED_API_KEY=your_api_key_here' >> ~/.bashrc
+source ~/.bashrc
+```
+
 #### On Windows:
 
 Command Prompt (temporary, for current session only):
@@ -70,19 +86,6 @@ To set permanently via System Properties:
 5. Variable name: `FRED_API_KEY`
 6. Variable value: your API key
 7. Click OK on all dialogs
-
-#### On macOS/Linux:
-
-For temporary use in current terminal session:
-```
-export FRED_API_KEY=your_api_key_here
-```
-
-For permanent use, add to your shell profile file (~/.bashrc, ~/.zshrc, etc.):
-```
-echo 'export FRED_API_KEY=your_api_key_here' >> ~/.bashrc
-source ~/.bashrc
-```
 
 ## Usage
 
