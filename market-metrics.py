@@ -1197,7 +1197,7 @@ def main():
         choice_text = get_user_choice()
         
         if choice_text == 'Exit':
-            console.print("\n[bold cyan]Thanks for using BLOCH Market Metrics Explorer! 👋[/bold cyan]\n")
+            console.print("\n[bold cyan]Thanks for using Market Metrics Explorer! 👋[/bold cyan]\n")
             break
         elif choice_text == 'Export All Metrics to CSV':
             # Ask for CSV path
