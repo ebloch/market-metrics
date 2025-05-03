@@ -18,6 +18,7 @@ import importlib
 import sys
 import subprocess
 import csv
+import getch  # Add for single-key input
 
 class USMarketMetrics:
     def __init__(self, fred_api_key: str, csv_export_path: Optional[str] = None):
@@ -181,9 +182,81 @@ class USMarketMetrics:
         
         Uses VTI (Vanguard Total Stock Market ETF) as a proxy for the entire US market
         """
-        return self._get_ticker_info("VTI", "P/E ratio", "trailingPE")
+        return self._get_ticker_info("VTI", "P/E ratio", "trailingPE", "US")
+        
+    def get_japan_pe_ratio(self) -> float:
+        """
+        Get current Japanese stock market P/E ratio
+        
+        Uses EWJ (iShares MSCI Japan ETF) as a proxy for the Japanese market
+        """
+        return self._get_ticker_info("EWJ", "P/E ratio", "trailingPE", "Japanese")
+        
+    def get_world_pe_ratios(self) -> Dict[str, float]:
+        """
+        Get P/E ratios for multiple major markets around the world
+        
+        Returns a dictionary with market names as keys and P/E ratios as values
+        """
+        # Dictionary of market data: ticker, display name, and internal reference name
+        markets = [
+            {"ticker": "VTI", "name": "US", "id": "us"},
+            {"ticker": "EWJ", "name": "Japan", "id": "japan"}
+            # Add more markets here as needed, examples:
+            # {"ticker": "VEUR", "name": "Europe", "id": "europe"},
+            # {"ticker": "MCHI", "name": "China", "id": "china"},
+            # {"ticker": "EWZ", "name": "Brazil", "id": "brazil"},
+            # {"ticker": "EWG", "name": "Germany", "id": "germany"},
+        ]
+        
+        results = {}
+        print(f"\nFetching world stock market P/E ratios")
+        
+        for i, market in enumerate(markets):
+            try:
+                # Add delay between requests to avoid rate limiting
+                # Skip delay for the first request
+                if i > 0:
+                    print(f"Waiting 2 seconds before fetching {market['name']} data to avoid rate limits...")
+                    time.sleep(2)
+                
+                # Create ticker object
+                ticker = yf.Ticker(market["ticker"])
+                
+                # Get P/E ratio
+                value = ticker.info.get("trailingPE")
+                
+                if value:
+                    print(f"Found {market['name']} P/E ratio: {value}")
+                    results[market["id"]] = float(value)
+                else:
+                    print(f"No P/E ratio data available for {market['name']}")
+                    results[market["id"]] = None
+                    
+            except Exception as e:
+                self.logger.error(f"Error fetching {market['name']} P/E ratio: {str(e)}", exc_info=True)
+                print(f"Error fetching {market['name']} P/E ratio: {str(e)}")
+                
+                # If rate limited, try to get individual metrics
+                if "Rate limited" in str(e):
+                    try:
+                        print(f"Attempting to fetch {market['name']} P/E ratio individually with longer delay...")
+                        time.sleep(5)  # Longer delay for retry
+                        if market["id"] == "us":
+                            results[market["id"]] = self.get_pe_ratio()
+                        elif market["id"] == "japan":
+                            results[market["id"]] = self.get_japan_pe_ratio()
+                        else:
+                            results[market["id"]] = None
+                    except Exception as retry_error:
+                        self.logger.error(f"Retry failed for {market['name']} P/E ratio: {str(retry_error)}", exc_info=True)
+                        results[market["id"]] = None
+                else:
+                    results[market["id"]] = None
+                
+        return results
     
-    def _get_ticker_info(self, symbol: str, description: str, info_field: str) -> float:
+    def _get_ticker_info(self, symbol: str, description: str, info_field: str, market: str = "US") -> float:
         """Get ticker information from Yahoo Finance"""
         try:
             # Create ticker object
@@ -191,7 +264,7 @@ class USMarketMetrics:
             
             # Get requested info
             value = ticker.info.get(info_field)
-            print(f"\nFetching US stock market {description} ({symbol})")
+            print(f"\nFetching {market} stock market {description} ({symbol})")
             
             if value:
                 print(f"Found {description}: {value}")
@@ -307,26 +380,107 @@ class USMarketMetrics:
         except Exception as e:
             return self._log_error("calculating credit spreads", e)
     
-    def get_market_to_gdp(self) -> float:
-        """Get US stock market capitalization to GDP ratio (Buffett Indicator)"""
+    def get_market_to_gdp(self) -> Dict[str, float]:
+        """
+        Get US stock market capitalization to GDP ratio (Buffett Indicator)
+        
+        Uses the Wilshire 5000 Total Market Index (^W5000) as a proxy for the entire 
+        US stock market and the most recent GDP value from FRED.
+        """
         try:
-            print(f"\nFetching US stock market to GDP ratio")
+            print(f"\nFetching US stock market to GDP ratio (Buffett Indicator)")
             
-            # Get market cap to GDP from FRED (DDDM01USA156NWDB)
-            market_to_gdp = self._safe_get_fred_series('DDDM01USA156NWDB')
+            # Get latest GDP from FRED
+            gdp_data = self._safe_get_fred_series('GDP')  # Nominal GDP, quarterly, billions of dollars
             
-            if market_to_gdp is None or market_to_gdp.empty:
-                return None
+            if gdp_data is None or gdp_data.empty:
+                print("Could not fetch GDP data from FRED")
+                return {'market_cap': None, 'gdp': None, 'ratio': None, 'ratio_pct': None}
             
-            # Get the most recent value
-            latest_value = market_to_gdp.iloc[-1]
+            # Get the most recent GDP value (in billions of dollars)
+            latest_gdp = gdp_data.iloc[-1]
+            gdp_date = gdp_data.index[-1]
+            gdp_in_trillions = latest_gdp / 1000  # Convert to trillions for display
             
-            self.logger.info(f"Found market cap to GDP ratio: {latest_value:.2f}%")
-            print(f"Found market cap to GDP ratio: {latest_value:.2f}%")
+            print(f"Latest GDP: ${gdp_in_trillions:.2f} trillion (as of {gdp_date.strftime('%Y-%m-%d')})")
             
-            return float(latest_value)
+            # Get the Wilshire 5000 Total Market Full Cap Index from Yahoo Finance
+            try:
+                # Try with the ^W5000 ticker first
+                ticker = yf.Ticker("^W5000")
+                market_data = ticker.history(period="1d")
+                
+                if market_data.empty:
+                    # Fall back to WILLSILVMKTCAP
+                    print("Could not fetch Wilshire 5000 data with ^W5000, trying WILLSILVMKTCAP...")
+                    ticker = yf.Ticker("WILLSILVMKTCAP")
+                    market_data = ticker.history(period="1d")
+            except Exception as e:
+                self.logger.error(f"Error fetching Wilshire 5000 data: {str(e)}")
+                print(f"Error fetching Wilshire 5000 data: {str(e)}")
+                
+                # Try one more fallback to the FRED series for Wilshire 5000
+                try:
+                    print("Falling back to FRED for Wilshire 5000 data...")
+                    wilshire_data = self._safe_get_fred_series('WILL5000INDFC')
+                    
+                    if wilshire_data is None or wilshire_data.empty:
+                        print("Could not fetch Wilshire 5000 data from FRED")
+                        return {'market_cap': None, 'gdp': None, 'ratio': None, 'ratio_pct': None}
+                    
+                    # The Wilshire 5000 Full Cap index from FRED is in billions
+                    market_cap = wilshire_data.iloc[-1]
+                    market_date = wilshire_data.index[-1]
+                    
+                except Exception as fallback_e:
+                    self.logger.error(f"Error fetching Wilshire 5000 data from FRED: {str(fallback_e)}")
+                    print(f"Error fetching Wilshire 5000 data from FRED: {str(fallback_e)}")
+                    return {'market_cap': None, 'gdp': None, 'ratio': None, 'ratio_pct': None}
+            else:
+                # If Yahoo Finance data was successfully retrieved
+                if not market_data.empty:
+                    # The Wilshire 5000 Full Cap index reflects the market cap in billions of dollars
+                    market_cap = market_data['Close'].iloc[-1]
+                    market_date = market_data.index[-1]
+                else:
+                    print("Could not fetch Wilshire 5000 data")
+                    return {'market_cap': None, 'gdp': None, 'ratio': None, 'ratio_pct': None}
+            
+            # Convert to trillions for display
+            market_cap_trillions = market_cap / 1000
+            
+            # Calculate the ratio
+            ratio = market_cap / latest_gdp
+            # Convert to percentage
+            ratio_pct = ratio * 100
+            
+            self.logger.info(f"Wilshire 5000 Total Market Cap: ${market_cap_trillions:.2f} trillion")
+            self.logger.info(f"US GDP: ${gdp_in_trillions:.2f} trillion")
+            self.logger.info(f"Market-to-GDP Ratio: {ratio:.2f} ({ratio_pct:.2f}%)")
+            
+            print(f"Wilshire 5000 Total Market Cap: ${market_cap_trillions:.2f} trillion (as of {market_date.strftime('%Y-%m-%d')})")
+            print(f"Market-to-GDP Ratio: {ratio:.2f} ({ratio_pct:.2f}%)")
+            
+            # Interpret the ratio
+            if ratio_pct < 80:
+                print("Interpretation: Significantly Undervalued (< 80%)")
+            elif ratio_pct < 100:
+                print("Interpretation: Undervalued (80-100%)")
+            elif ratio_pct < 120:
+                print("Interpretation: Fairly Valued (100-120%)")
+            elif ratio_pct < 140:
+                print("Interpretation: Overvalued (120-140%)")
+            else:
+                print("Interpretation: Significantly Overvalued (> 140%)")
+            
+            return {
+                'market_cap': float(market_cap),
+                'gdp': float(latest_gdp),
+                'ratio': float(ratio),
+                'ratio_pct': float(ratio_pct)
+            }
         except Exception as e:
-            return self._log_error("fetching market to GDP ratio", e)
+            return self._log_error("calculating market-to-GDP ratio", e)
     
     def get_gdp_metrics(self) -> Dict[str, float]:
         """Get GDP and related metrics"""
@@ -667,14 +821,14 @@ class USMarketMetrics:
     
     def _normalize_metric_name(self, metric_name: str) -> str:
         """Convert display metric name to normalized variable name"""
-        if metric_name == 'US P/E Ratio':
-            return 'pe_ratio'
+        if metric_name == 'World Stock Market P/E Ratios':
+            return 'world_pe_ratios'
         elif metric_name == 'US CAPE Ratio':
             return 'cape_ratio'
         elif metric_name == 'US Credit Spreads':
             return 'credit_spreads'
         elif metric_name == 'US Stock Market / GDP':
-            return 'market_to_gdp'
+            return 'buffett_indicator'
         elif metric_name == 'US GDP':
             return 'gdp'
         elif metric_name == 'US Government Debt & Deficit':
@@ -698,10 +852,10 @@ class USMarketMetrics:
     def get_metric_definitions(self) -> Dict[str, tuple]:
         """Return a mapping of metric names to their functions and sources"""
         return {
-            'US P/E Ratio': (self.get_pe_ratio, 'Yahoo Finance - VTI (Total US Market)'),
+            'World Stock Market P/E Ratios': (self.get_world_pe_ratios, 'Yahoo Finance - Multiple Market ETFs'),
             'US CAPE Ratio': (self.get_cape_ratio, 'Robert Shiller\'s Dataset'),
             'US Credit Spreads': (self.get_credit_spreads, 'FRED - Moody\'s BAA Corporate Bond'),
-            'US Stock Market / GDP': (self.get_market_to_gdp, 'FRED - Stock Market Capitalization to GDP'),
+            'US Stock Market / GDP': (self.get_market_to_gdp, 'Wilshire 5000 Index / FRED GDP (Buffett Indicator)'),
             'US GDP': (self.get_gdp_metrics, 'FRED - Bureau of Economic Analysis'),
             'US Government Debt & Deficit': (self.get_government_metrics, 'FRED - Treasury Department'),
             'US 10-Year Yield': (self.get_10yr_yield, 'FRED - Treasury Department'),
@@ -1001,7 +1155,7 @@ def display_ascii_art():
 
 def get_metric_choices() -> List[str]:
     return [
-        '1. US P/E Ratio',
+        '1. World Stock Market P/E Ratios',
         '2. US CAPE Ratio',
         '3. US Credit Spreads',
         '4. US Stock Market / GDP',
@@ -1037,6 +1191,22 @@ def display_metric_result(metric_name: str, value: Dict[str, Any]):
         date_value = value.pop('date')
         if date_value and timestamp == 'Date not available':
             timestamp = date_value
+    
+    # Special handling for World P/E Ratios
+    if metric_name == 'World Stock Market P/E Ratios':
+        for market_id, pe_value in value.items():
+            market_name = market_id.upper()
+            if market_id == 'us':
+                market_name = 'United States'
+            elif market_id == 'japan':
+                market_name = 'Japan'
+                
+            if pe_value is None:
+                table.add_row(f"{market_name}", "Data unavailable", timestamp, source)
+            else:
+                table.add_row(f"{market_name}", f"{float(pe_value):.2f}", timestamp, source)
+        console.print(Panel(table, title=f"[bold cyan]{metric_name}[/bold cyan]", border_style="blue"))
+        return
     
     # Special handling for earnings growth
     if metric_name == 'US Earnings Growth' and 'growth_rate' in value:
@@ -1088,12 +1258,15 @@ def display_metric_result(metric_name: str, value: Dict[str, Any]):
                         elif k == 'govt_deficit':
                             # Format in billions with sign
                             formatted_value = f"${abs(float(v))/1000:.2f} billion {'deficit' if float(v) < 0 else 'surplus'}"
-                        elif k == 'gdp':
+                        elif k == 'gdp' or k == 'market_cap':
                             # Format in trillions
                             formatted_value = f"${float(v)/1000:.2f} trillion"
-                        elif k == 'debt_to_gdp' or k == 'gdp_growth' or k.endswith('_rate'):
+                        elif k == 'debt_to_gdp' or k == 'gdp_growth' or k == 'ratio_pct' or k.endswith('_rate'):
                             # Percentages
                             formatted_value = f"{float(v):.2f}%"
+                        elif k == 'ratio':
+                            # Ratio as decimal
+                            formatted_value = f"{float(v):.2f}"
                         elif k == 'baa_spread':
                             # Basis points
                             formatted_value = f"{float(v):.2f}% ({int(float(v)*100)} bps)"
@@ -1153,27 +1326,66 @@ def display_menu():
     console.print(menu_table)
 
 def get_user_choice() -> str:
-    """Get the user's choice from the menu"""
-    while True:
-        try:
-            choice = input("\n: ").strip()
+    """Get the user's choice from the menu using single-key input"""
+    try:
+        console = Console()
+        console.print("\n[cyan]:[/cyan]", end="")
+        
+        # Get a single character without requiring Enter
+        choice = getch.getch()
+        console.print(f"{choice}")
+        
+        # Check for Q/q to exit
+        if choice.lower() == 'q':
+            return 'Exit'
             
-            # Check for Q/q to exit
-            if choice.lower() == 'q':
-                return 'Exit'
-                
+        # Try to convert to a number
+        try:
             choice_num = int(choice)
             
-            if 1 <= choice_num <= 18:
+            if 1 <= choice_num <= 17:
                 # Convert number to menu text
                 choices = get_metric_choices()
                 for menu_item in choices:
                     if menu_item.startswith(f"{choice_num}. "):
                         return menu_item.split('. ', 1)[1]
-                        
-            print("[bold red]Invalid choice. Please enter a number between 1 and 18 or 'q' to exit.[/bold red]")
+            
+            # If we get here, the choice was a number but not in valid range
+            console.print("[bold red]Invalid choice. Press a number between 1 and 17 or 'q' to exit.[/bold red]")
+            # Recurse to get another input
+            return get_user_choice()
+            
         except ValueError:
-            print("[bold red]Please enter a valid number or 'q' to exit.[/bold red]")
+            # If we get here, the choice wasn't a number or 'q'
+            console.print("[bold red]Please press a number between 1 and 17 or 'q' to exit.[/bold red]")
+            # Recurse to get another input
+            return get_user_choice()
+            
+    except Exception as e:
+        # If getch isn't available, fall back to input()
+        print(f"\nSingle-key input not available: {str(e)}")
+        print("Falling back to standard input...")
+        
+        while True:
+            try:
+                choice = input("\nEnter your choice: ").strip()
+                
+                # Check for Q/q to exit
+                if choice.lower() == 'q':
+                    return 'Exit'
+                    
+                choice_num = int(choice)
+                
+                if 1 <= choice_num <= 17:
+                    # Convert number to menu text
+                    choices = get_metric_choices()
+                    for menu_item in choices:
+                        if menu_item.startswith(f"{choice_num}. "):
+                            return menu_item.split('. ', 1)[1]
+                            
+                print("[bold red]Invalid choice. Please enter a number between 1 and 17 or 'q' to exit.[/bold red]")
+            except ValueError:
+                print("[bold red]Please enter a valid number or 'q' to exit.[/bold red]")
 
 def main():
     # Get FRED API key from environment variable
