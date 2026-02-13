@@ -3,7 +3,6 @@ pandas>=1.4.0
 matplotlib>=3.5.0
 rich>=13.6.0
 questionary>=2.0.1
-getch>=1.0.0  # Added for single-key input
 fredapi>=0.5.0
 yfinance>=0.2.28
 xlrd>=2.0.1  # For Excel files

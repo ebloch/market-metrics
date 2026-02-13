@@ -89,28 +89,69 @@ To set permanently via System Properties:
 
 ## Usage
 
-The basic syntax for using the CLI is:
 ```
-python market-metrics.py
+python market-metrics.py [options]
 ```
 
-This will launch an interactive menu where you can select various market metrics to view.
+### Command Line Options
+
+| Option | Description |
+|--------|-------------|
+| `--help` | Show help message with all options and usage information |
+| `--export PATH` | Export all metrics to CSV file and exit (non-interactive) |
+| `--test` | Run with dummy data for UI testing |
+
+### Examples
+
+```bash
+# Launch interactive dashboard
+python market-metrics.py
+
+# Export metrics to CSV (for cron jobs or scripts)
+python market-metrics.py --export daily_metrics.csv
+
+# Test UI with dummy data (no API calls)
+python market-metrics.py --test
+
+# View full help
+python market-metrics.py --help
+```
+
+### Dashboard Keys
+
+When running the interactive dashboard:
+
+| Key | Action |
+|-----|--------|
+| `1` | Export all metrics to CSV file |
+| `2` | Plot a single FRED data series |
+| `3` | Plot multiple FRED series for comparison |
+| `S` | View data sources and timestamps |
+| `R` | Refresh all market data |
+| `Q` | Quit the application |
+
+### Exit Codes (--export mode)
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success - all or some metrics exported |
+| `1` | Failure - missing API key, invalid path, or all exports failed |
 
 ## Available Metrics
 
-- US P/E Ratio
-- US CAPE Ratio
-- US Credit Spreads
-- US Stock Market / GDP
-- US GDP
-- US Government Debt & Deficit
-- US 10-Year Yield
-- US Inflation Rate
-- US Equity Risk Premium
-- US Earnings Growth
-- Gold Price
-- Bitcoin Price
-- WTI Crude Oil Price
+| Category | Metrics |
+|----------|---------|
+| **US Economy** | GDP, GDP Growth, Debt/GDP, Deficit, Inflation, Earnings Growth |
+| **Valuations** | US P/E, Japan P/E, CAPE Ratio, Equity Risk Premium, Buffett Indicator |
+| **Rates & Credit** | 10-Year Treasury Yield, BAA Credit Spread |
+| **Assets** | Gold, Bitcoin, WTI Crude Oil |
 
-You can also export all metrics to CSV or plot historical data for any FRED series.
+## Data Sources
+
+| Source | Data Provided |
+|--------|---------------|
+| FRED API | GDP, Inflation, Treasury Yields, Credit Spreads, Debt/Deficit |
+| Yahoo Finance | P/E Ratios, Gold, Bitcoin, Oil prices, Market Cap |
+| Robert Shiller | CAPE Ratio (Cyclically Adjusted P/E) |
+| NYU Stern | Equity Risk Premium |
 
