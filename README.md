@@ -2,7 +2,7 @@
 
 A command-line interface tool for retrieving and analyzing market metrics data.
 
-<img width="1048" alt="image" src="https://github.com/user-attachments/assets/e7eb3f86-b744-4ac8-8f7a-4a763c7df4f4" />
+<img width="917" height="524" alt="image" src="https://github.com/user-attachments/assets/7ae91353-2ff8-4e3c-9ba0-5656be67d79f" />
 
 
 ## Dependencies
